@@ -6,12 +6,9 @@ const dishes = require(path.resolve("src/data/dishes-data"));
 // Use this function to assign ID's when necessary
 const nextId = require("../utils/nextId");
 
-// TODO: Implement the /dishes handlers needed to make the tests pass
-//put /dishes/:dishId
-
 //helper function
 function findDish(dishId) {
-    return dishes.find((dish) => dish.id === Number(dishId));
+    return dishes.find((dish) => dish.id === dishId);
 }
 
 //list all dishes
@@ -42,18 +39,39 @@ function getDish(req, res) {
     res.status(200).json({ data: foundDish });
 };
 
+//check if dish.id matches
+function dishIdExists(req, res, next) {
+    const { data: { id } = {} } = req.body;
+    const dishId = req.params.dishId;
+    if (id !== undefined && id !== null && id !== "" && id !== dishId) {
+      next({
+        status: 400,
+        message: `id ${id} must match dataId provided in parameters`,
+      });
+    }
+     return next();
+  };
+
 // price property is missing	Dish must include a price
 // price property 0 or less	Dish must have a price that is an integer greater than 0
 // price property is not an integer	Dish must have a price that is an integer greater than 0
-function hasValidPrice(res, req, next) {
+function hasValidPrice(req, res, next) {
     const { data: { price } = {} } = req.body;
-    if (!Number(+price) || Number(+price) < 0 || !Number.isInteger(+price)) {
-            return next({
-                status: 400,
-                message: "Dish must have a price that is an integer greater than 0"
-            })
+        if (
+            req.body.data.price === null ||
+            req.body.data.price === "" ||
+            req.body.data.price === undefined
+        ) {
+            next({ status: 400, message: "Dish must include a price." });
         }
-    return next();
+        if (typeof req.body.data.price === "number" && req.body.data.price > 0) {
+        return next();
+    } else {
+        next({
+        status: 400,
+        message: `The price must be a number greater than 0.`,
+        });
+    }
 }
 
 // name property is missing	Dish must include a name
@@ -72,15 +90,11 @@ function bodyDataHas(propertyName) {
     };
   }
 
-
-//create lastDishId
-let lastDishId = dishes.reduce((maxId, dish) => Math.max(maxId, dish.id), 0);
-
 //create 
-function createDish(req, res, next) {
+function createDish(req, res) {
     const { data: { name, description, price, image_url } = {} } = req.body;
     const newDish = {
-         id: ++lastDishId,
+         id: nextId(),
          name,
          description,
          price,
@@ -114,6 +128,7 @@ module.exports = {
     ],
     update: [
         dishExists, 
+        dishIdExists,
         bodyDataHas("name"),
         bodyDataHas("description"),
         bodyDataHas("price"),
